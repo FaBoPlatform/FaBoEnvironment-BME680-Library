@@ -1,5 +1,5 @@
 /**
- @file readTPHG.ino
+ @file readEnvironment.ino
  @brief This is an Example for the FaBo Environment I2C Brick.
 
    Released under APACHE LICENSE, VERSION 2.0
@@ -36,22 +36,22 @@ void loop() {
   // Read Sensor
   if(faboEnv.readSensors()){
   
-    float temp = (float)faboEnv.readTemperature();
-    float pressure = (float)faboEnv.readPressure()/100; // Pa -> hPa
-    float humidity = (float)faboEnv.readHumidity();
-    float resistance = (float)faboEnv.readGasResistance()/1000; // Ohm -> kOhm
-    float altitude = (float)faboEnv.readAltitude();
+    float temp = faboEnv.readTemperature();
+    float pressure = faboEnv.readPressure()/100; // Pa -> hPa
+    float humidity = faboEnv.readHumidity();
+    long resistance = faboEnv.readGasResistance();
+    float altitude = faboEnv.readAltitude();
     
     Serial.print("Time:");
-    Serial.print(millis());
-    Serial.println(" us");
+    Serial.print((float)millis()/1000);
+    Serial.println(" s");
     
     Serial.print("Temperature = "); 
     Serial.print( temp, 2); 
     Serial.println(" C");     // degrees Celsius
     
     Serial.print("Pressure = "); 
-    Serial.print(pressure, 2);  
+    Serial.print(pressure, 2);
     Serial.println(" hPa");   // hPa
   
     Serial.print("Altitude = ");
@@ -64,7 +64,7 @@ void loop() {
     
     Serial.print("Gas Resistance = "); 
     Serial.print(resistance);  
-    Serial.println(" kOhm");  // kOhm
-    Serial.println(" ");
+    Serial.println(" Ohm");   // Ohm
+    Serial.println("");
   }
 }

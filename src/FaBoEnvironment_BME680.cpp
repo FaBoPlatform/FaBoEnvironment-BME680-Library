@@ -61,7 +61,8 @@ int8_t   par_t3, par_p3, par_p6, par_p7, par_h3, par_h4, par_h5, par_h7, par_g1,
 int16_t  par_t2, par_p2, par_p4, par_p5, par_p8, par_p9, par_g2;
 
 // parameters
-int32_t t_fine;
+int32_t _t_fine;
+
 int32_t _t_temp;
 int32_t _t_pressure;
 int32_t _t_humidity;
@@ -354,7 +355,7 @@ bool FaBoEnvironment::setGasHeater()
 bool FaBoEnvironment::readSensors()
 {
   // check status
-  if ((readByteI2c(BME680_EAS_STATUS_REG)&0b00100000)!=0){
+  if ((readByteI2c(BME680_EAS_STATUS_REG)&BME680_EAS_STATUS_MEASURING)!=0){
     return false;
   };
 
@@ -366,7 +367,11 @@ bool FaBoEnvironment::readSensors()
   setMode(BME680_FORCED_MODE);
   // read delay time
   uint16_t delay_time = getOversamplingDuration();
-  delay(delay_time * 2);
+
+  // New data Check
+  do{
+    delay(delay_time * 2);
+  }while ((readByteI2c(BME680_EAS_STATUS_REG)&BME680_EAS_STATUS_NEW_DATA)!=0);
 
   /* calculation sensor data */
 
@@ -382,8 +387,8 @@ bool FaBoEnvironment::readSensors()
   var1 = ((int32_t) raw_temp >> 3) - ((int32_t)par_t1 << 1);
   var2 = (var1 * (int32_t)par_t2) >> 11;
   var3 = ((((var1 >> 1) * (var1 >> 1)) >> 12) * ((int32_t) par_t3 << 4)) >> 14;
-  t_fine = var2 + var3;
-  _t_temp = (t_fine * 5 + 128) >> 8;
+  _t_fine = var2 + var3;
+  _t_temp = (_t_fine * 5 + 128) >> 8;
 
   // Pressure
   uint8_t raw_pressure_data[3];
@@ -394,7 +399,7 @@ bool FaBoEnvironment::readSensors()
 
   // set Pascal
   int32_t pascal = 0;
-  var1 = (((int32_t) t_fine) >> 1) - 64000;
+  var1 = (((int32_t) _t_fine) >> 1) - 64000;
   var2 = ((((var1 >> 2) * (var1 >> 2)) >> 11) * (int32_t) par_p6) >> 2;
   var2 = var2 + ((var1 * (int32_t)par_p5) << 1);
   var2 = (var2 >> 2) + ((int32_t) par_p4 << 16);
@@ -404,9 +409,9 @@ bool FaBoEnvironment::readSensors()
   var1 = ((32768 + var1) * (int32_t) par_p1) >> 15;
   pascal = 1048576 - raw_pressure;
   pascal = (int32_t)((pascal - (var2 >> 12)) * ((uint32_t)3125));
-  var4 = (1 << 31);
 
-  if(pascal >= var4){
+  // check over flow
+  if(pascal >= 0x40000000){
     pascal = (( pascal / (uint32_t) var1) << 1);
   } else {
     pascal = ((pascal << 1) / (uint32_t) var1);
@@ -430,7 +435,7 @@ bool FaBoEnvironment::readSensors()
   int32_t temperature;
   int32_t humidity;
 
-  temperature = (((int32_t) t_fine * 5) + 128) >> 8;
+  temperature = (((int32_t) _t_fine * 5) + 128) >> 8;
   var1 = (int32_t) raw_Humidity  - ((int32_t) ((int32_t)par_h1 << 4)) - (((temperature * (int32_t) par_h3) / ((int32_t)100)) >> 1);
   var2 = ((int32_t)par_h2 * (((temperature * (int32_t)par_h4)
          / ((int32_t)100)) + (((temperature * ((temperature * (int32_t)par_h5)
@@ -443,15 +448,16 @@ bool FaBoEnvironment::readSensors()
 
   humidity = (var3 + var6) >> 12;
 
+  // check for over- and under-flow
   if (humidity > 102400) {
-   humidity = 102400; // check for over- and under-flow
+   humidity = 102400;
   } else if(humidity < 0) {
    humidity = 0;
   }
   _t_humidity = humidity;
 
   // GAS
-  uint8_t raw_gas_data[2];  // 10-bit gas resistance register data stored here
+  uint8_t raw_gas_data[2];
   uint16_t raw_gas;
   readI2c(BME680_GAS_R_MSB_REG, 2, raw_gas_data);
 
@@ -501,7 +507,8 @@ uint16_t FaBoEnvironment::getOversamplingDuration()
 }
 
 /*
- * @brief read Temperature (Degree Celsius)
+ * @brief read Temperature
+ * @return uint32_t : Temperature (Degree Celsius)
  */
 float FaBoEnvironment::readTemperature()
 {
@@ -509,15 +516,17 @@ float FaBoEnvironment::readTemperature()
 }
 
 /*
- * @brief read Pressure (pascal)
+ * @brief read Pressure
+ * @return uint32_t : Pressure (pascal)
  */
-uint32_t FaBoEnvironment::readPressure()
+float FaBoEnvironment::readPressure()
 {
-  return _t_pressure;
+  return (float)_t_pressure;
 }
 
 /*
- * @brief read Humidity (Relative Humidity:%)
+ * @brief read Humidity
+ * @return float : Humidity (Relative Humidity:%)
  */
 float FaBoEnvironment::readHumidity()
 {
@@ -525,7 +534,8 @@ float FaBoEnvironment::readHumidity()
 }
 
 /*
- * @brief read Gas Resistance (Ohm)
+ * @brief read Gas Resistance
+ * @return uint32_t : Gas Rasistance(Ohm)
  */
 uint32_t FaBoEnvironment::readGasResistance()
 {
@@ -546,7 +556,10 @@ float FaBoEnvironment::readAltitude()
  * @param [in] value  : Write Data
  */
 void FaBoEnvironment::writeI2c(uint8_t register_addr, uint8_t value) {
-  // Serial.print("[W]\tI2C 0x");Serial.print(register_addr,HEX);Serial.print(" : 0x");Serial.println(value, HEX);
+  // Serial.print("[W]\tI2C 0x");
+  // Serial.print(register_addr,HEX);
+  // Serial.print(" : 0x");
+  // Serial.println(value, HEX);
   Wire.beginTransmission(device_addr);
   Wire.write(register_addr);
   Wire.write(value);
@@ -560,7 +573,9 @@ void FaBoEnvironment::writeI2c(uint8_t register_addr, uint8_t value) {
  * @param [out] *buf : Read Data
  */
 void FaBoEnvironment::readI2c(uint8_t register_addr, uint8_t num, uint8_t *buf) {
-  // Serial.print("[R]\tI2C 0x");Serial.print(register_addr,HEX);Serial.print(" : ");
+  // Serial.print("[R]\tI2C 0x");
+  // Serial.print(register_addr,HEX);
+  // Serial.print(" : ");
   Wire.beginTransmission(device_addr);
   Wire.write(register_addr);
   Wire.endTransmission();
@@ -591,6 +606,9 @@ uint8_t FaBoEnvironment::readByteI2c(uint8_t register_addr) {
   Wire.endTransmission();
   Wire.requestFrom(device_addr, 1);
   uint8_t value = Wire.read();
-  // Serial.print("[R]\tI2C 0x");Serial.print(register_addr,HEX);Serial.print(" : 0x");Serial.println(value,HEX);
+  // Serial.print("[R]\tI2C 0x");
+  // Serial.print(register_addr,HEX);
+  // Serial.print(" : 0x");
+  // Serial.println(value,HEX);
   return value;
 }

@@ -1,17 +1,17 @@
-# FaBo9Axis-BMX055-Library
+# FaBoEnvironment-BME680-Library
 
 
-# FaBoUV
+# FaBoEnvironment
 
-This is a library for FaBo 9Axis Brick.
+This is a library for FaBo Environment Brick.
 
-# Si1132
+# BME680
 
-BMX055 is Bosch mems sensor for 9-Axis.
+BME680 is Bosch mems sensor for Environment.
 
 # Datasheet
 
-[BMX055 Datasheet](https://ae-bst.resource.bosch.com/media/_tech/media/datasheets/BST-BMX055-DS000-02.pdf)
+[BME680 Datasheet](https://ae-bst.resource.bosch.com/media/_tech/media/datasheets/BST-BME680-DS001-00.pdf)
 
 # Releases
 

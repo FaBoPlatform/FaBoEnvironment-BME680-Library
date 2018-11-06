@@ -155,6 +155,9 @@
 
 #define BME680_RES_HEAT_RANGE_MASK	0b00110000
 
+#define BME680_EAS_STATUS_MEASURING			0b00100000
+#define BME680_EAS_STATUS_NEW_DATA			0b10000000
+
 // Soft Reset COMMAND
 #define BME680_INITIATES_RESET_CMD	0xB6
 
@@ -186,7 +189,7 @@ public:
 
 	bool readSensors(void);
 	float readTemperature(void);
-	uint32_t readPressure(void);
+	float readPressure(void);
 	float readHumidity(void);
 	uint32_t readGasResistance(void);
 	float readAltitude(void);
